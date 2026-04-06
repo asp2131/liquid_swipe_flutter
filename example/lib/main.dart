@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:liquid_swipe/liquid_swipe.dart';
 
 void main() {
-  /// Comment or uncomment to run both examples
+  /// Comment or uncomment to run different examples
   runApp(
       WithBuilder()
       // WithPages()
+      // WithVerticalSwipe()
   );
 }
 
@@ -519,6 +520,49 @@ class _WithPages extends State<WithPages> {
     setState(() {
       page = lpage;
     });
+  }
+}
+
+/// Example of LiquidSwipe with vertical swiping (Axis.vertical)
+class WithVerticalSwipe extends StatefulWidget {
+  @override
+  _WithVerticalSwipeState createState() => _WithVerticalSwipeState();
+}
+
+class _WithVerticalSwipeState extends State<WithVerticalSwipe> {
+  int page = 0;
+  late LiquidController liquidController;
+
+  final pages = [
+    Container(color: Colors.blue, child: Center(child: Text("Page 1 - Swipe Up", style: WithPages.style))),
+    Container(color: Colors.deepPurpleAccent, child: Center(child: Text("Page 2", style: WithPages.style))),
+    Container(color: Colors.green, child: Center(child: Text("Page 3", style: WithPages.style))),
+    Container(color: Colors.yellow, child: Center(child: Text("Page 4", style: WithPages.style))),
+  ];
+
+  @override
+  void initState() {
+    liquidController = LiquidController();
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        body: LiquidSwipe(
+          pages: pages,
+          swipeAxis: Axis.vertical,
+          positionSlideIcon: 0.5,
+          slideIconWidget: Icon(Icons.arrow_upward),
+          onPageChangeCallback: (lpage) => setState(() => page = lpage),
+          waveType: WaveType.liquidReveal,
+          liquidController: liquidController,
+          enableSideReveal: true,
+          enableLoop: true,
+        ),
+      ),
+    );
   }
 }
 

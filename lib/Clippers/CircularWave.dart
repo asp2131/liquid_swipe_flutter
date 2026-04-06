@@ -5,26 +5,39 @@ class CircularWave extends CustomClipper<Path> {
   final double revealPercent;
   final Size iconSize;
   final double verReveal;
+  final Axis swipeAxis;
 
   CircularWave(
     this.iconSize,
     this.revealPercent,
-    this.verReveal,
-  );
+    this.verReveal, {
+    this.swipeAxis = Axis.horizontal,
+  });
 
   @override
   Path getClip(Size size) {
-    final center = Offset(
-      size.width,
-      size.height * verReveal,
-    );
+    final isVertical = swipeAxis == Axis.vertical;
+
+    // Horizontal: center on right edge at vertical position
+    // Vertical: center on bottom edge at horizontal position
+    final center = isVertical
+        ? Offset(size.width * verReveal, size.height)
+        : Offset(size.width, size.height * verReveal);
+
     final radius = 1000 * revealPercent + iconSize.width * 2;
     final diameter = 2 * radius;
     final path = Path();
 
-    path.lineTo(size.width, 0);
-    path.lineTo(size.width, size.height);
-    path.lineTo(0, size.height);
+    if (isVertical) {
+      // Draw from bottom edge
+      path.lineTo(0, size.height);
+      path.lineTo(size.width, size.height);
+      path.lineTo(size.width, 0);
+    } else {
+      path.lineTo(size.width, 0);
+      path.lineTo(size.width, size.height);
+      path.lineTo(0, size.height);
+    }
 
     final rect = Rect.fromLTWH(
       center.dx - radius,

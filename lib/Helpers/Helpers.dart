@@ -15,8 +15,22 @@ const PERCENT_PER_MILLISECOND = 0.00125;
 enum SlideDirection {
   leftToRight,
   rightToLeft,
+  topToBottom,
+  bottomToTop,
   none,
 }
+
+/// Returns true if the direction is vertical (topToBottom or bottomToTop).
+bool isVerticalDirection(SlideDirection d) =>
+    d == SlideDirection.topToBottom || d == SlideDirection.bottomToTop;
+
+/// Returns true if the direction is a "previous page" direction (leftToRight or topToBottom).
+bool isPreviousDirection(SlideDirection d) =>
+    d == SlideDirection.leftToRight || d == SlideDirection.topToBottom;
+
+/// Returns true if the direction is a "next page" direction (rightToLeft or bottomToTop).
+bool isNextDirection(SlideDirection d) =>
+    d == SlideDirection.rightToLeft || d == SlideDirection.bottomToTop;
 
 ///UpdateType Enum with 4 values
 ///[UpdateType.dragging] when user starts dragging or currently being dragging

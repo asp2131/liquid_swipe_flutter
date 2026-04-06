@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:liquid_swipe/Helpers/SlideUpdate.dart';
 import 'package:liquid_swipe/PageHelpers/animated_page_dragger.dart';
 import 'package:liquid_swipe/PageHelpers/page_dragger.dart';
@@ -75,6 +76,8 @@ class LiquidProvider extends ChangeNotifier {
 
   bool enableSideReveal = false;
 
+  Axis swipeAxis = Axis.horizontal;
+
   Size iconSize = Size.zero;
 
   Timer? _timer;
@@ -96,7 +99,9 @@ class LiquidProvider extends ChangeNotifier {
     required SlidePercentCallback? slidePercentCallback,
     required bool disableGesture,
     required bool enableSideReveal,
+    required Axis swipeAxis,
   }) {
+    this.swipeAxis = swipeAxis;
     slidePercentHor = 0.00;
     slidePercentVer = 0.00;
     activePageIndex = initialPage;
@@ -112,7 +117,9 @@ class LiquidProvider extends ChangeNotifier {
     this.enableSideReveal = enableSideReveal;
 
     updateSlide(SlideUpdate(
-      SlideDirection.rightToLeft,
+      swipeAxis == Axis.vertical
+          ? SlideDirection.bottomToTop
+          : SlideDirection.rightToLeft,
       0.00,
       positionSlideIcon,
       UpdateType.dragging,
@@ -170,20 +177,26 @@ class LiquidProvider extends ChangeNotifier {
     int diff = 0;
     _timer?.cancel();
     _timerInner?.cancel();
+    final nextDir = swipeAxis == Axis.vertical
+        ? SlideDirection.bottomToTop
+        : SlideDirection.rightToLeft;
+    final prevDir = swipeAxis == Axis.vertical
+        ? SlideDirection.topToBottom
+        : SlideDirection.leftToRight;
     if (activePageIndex < page) {
       diff = page - activePageIndex;
       int newDuration = duration ~/ diff;
       _timer = Timer.periodic(Duration(milliseconds: newDuration), (callback) {
         _timerInner = Timer.periodic(const Duration(milliseconds: 1), (t) {
           if (t.tick < newDuration / 2) {
-            updateSlide(SlideUpdate(SlideDirection.rightToLeft,
-                t.tick / newDuration, positionSlideIcon, UpdateType.dragging));
+            updateSlide(SlideUpdate(nextDir, t.tick / newDuration,
+                positionSlideIcon, UpdateType.dragging));
           } else if (t.tick < newDuration) {
-            updateSlide(SlideUpdate(SlideDirection.rightToLeft,
-                t.tick / newDuration, positionSlideIcon, UpdateType.animating));
+            updateSlide(SlideUpdate(nextDir, t.tick / newDuration,
+                positionSlideIcon, UpdateType.animating));
           } else {
-            updateSlide(SlideUpdate(SlideDirection.rightToLeft, 1,
-                positionSlideIcon, UpdateType.doneAnimating));
+            updateSlide(SlideUpdate(
+                nextDir, 1, positionSlideIcon, UpdateType.doneAnimating));
             t.cancel();
           }
         });
@@ -198,14 +211,14 @@ class LiquidProvider extends ChangeNotifier {
       _timer = Timer.periodic(Duration(milliseconds: newDuration), (callback) {
         _timerInner = Timer.periodic(const Duration(milliseconds: 1), (t) {
           if (t.tick < newDuration / 2) {
-            updateSlide(SlideUpdate(SlideDirection.leftToRight,
-                t.tick / newDuration, positionSlideIcon, UpdateType.dragging));
+            updateSlide(SlideUpdate(prevDir, t.tick / newDuration,
+                positionSlideIcon, UpdateType.dragging));
           } else if (t.tick < newDuration) {
-            updateSlide(SlideUpdate(SlideDirection.leftToRight,
-                t.tick / newDuration, positionSlideIcon, UpdateType.animating));
+            updateSlide(SlideUpdate(prevDir, t.tick / newDuration,
+                positionSlideIcon, UpdateType.animating));
           } else {
-            updateSlide(SlideUpdate(SlideDirection.leftToRight, 1,
-                positionSlideIcon, UpdateType.doneAnimating));
+            updateSlide(SlideUpdate(
+                prevDir, 1, positionSlideIcon, UpdateType.doneAnimating));
             t.cancel();
           }
         });
@@ -227,7 +240,12 @@ class LiquidProvider extends ChangeNotifier {
     activePageIndex = page - 1;
     nextPageIndex = page;
     if (nextPageIndex >= pagesLength) nextPageIndex = 0;
-    updateSlide(SlideUpdate(SlideDirection.rightToLeft, 1, positionSlideIcon,
+    updateSlide(SlideUpdate(
+        swipeAxis == Axis.vertical
+            ? SlideDirection.bottomToTop
+            : SlideDirection.rightToLeft,
+        1,
+        positionSlideIcon,
         UpdateType.doneAnimating));
     isInProgress = false;
   }
@@ -243,10 +261,10 @@ class LiquidProvider extends ChangeNotifier {
   ///in this methods,
   ///All callbacks and factors are also managed by this method.
   updateData(SlideUpdate event) {
-    if (!enableLoop) if (event.direction == SlideDirection.leftToRight &&
+    if (!enableLoop) if (isPreviousDirection(event.direction) &&
         activePageIndex == 0) {
       return;
-    } else if (event.direction == SlideDirection.rightToLeft &&
+    } else if (isNextDirection(event.direction) &&
         activePageIndex == pagesLength - 1) {
       return;
     }
@@ -274,9 +292,9 @@ class LiquidProvider extends ChangeNotifier {
       nextPageIndex = activePageIndex;
       if (enableLoop) {
         //conditions on slide direction
-        if (slideDirection == SlideDirection.leftToRight) {
+        if (isPreviousDirection(slideDirection)) {
           nextPageIndex = activePageIndex - 1;
-        } else if (slideDirection == SlideDirection.rightToLeft) {
+        } else if (isNextDirection(slideDirection)) {
           nextPageIndex = activePageIndex + 1;
         }
 
@@ -289,10 +307,9 @@ class LiquidProvider extends ChangeNotifier {
       }
 
       //conditions on slide direction
-      if (slideDirection == SlideDirection.leftToRight &&
-          activePageIndex != 0) {
+      if (isPreviousDirection(slideDirection) && activePageIndex != 0) {
         nextPageIndex = activePageIndex - 1;
-      } else if (slideDirection == SlideDirection.rightToLeft &&
+      } else if (isNextDirection(slideDirection) &&
           activePageIndex != pagesLength - 1) {
         nextPageIndex = activePageIndex + 1;
       }
@@ -341,16 +358,18 @@ class LiquidProvider extends ChangeNotifier {
       _onPageChangeCallback!(nextPageIndex);
     }
     activePageIndex = nextPageIndex;
-    slideDirection = SlideDirection.rightToLeft;
+    slideDirection = swipeAxis == Axis.vertical
+        ? SlideDirection.bottomToTop
+        : SlideDirection.rightToLeft;
     slidePercentHor = 0.00;
     slidePercentVer = positionSlideIcon;
     nextPageIndex = activePageIndex;
 
     if (enableLoop) {
       //conditions on slide direction
-      if (slideDirection == SlideDirection.leftToRight) {
+      if (isPreviousDirection(slideDirection)) {
         nextPageIndex = activePageIndex - 1;
-      } else if (slideDirection == SlideDirection.rightToLeft) {
+      } else if (isNextDirection(slideDirection)) {
         nextPageIndex = activePageIndex + 1;
       }
 
@@ -360,10 +379,9 @@ class LiquidProvider extends ChangeNotifier {
         nextPageIndex = pagesLength - 1;
       }
     } else {
-      if (slideDirection == SlideDirection.leftToRight &&
-          activePageIndex != 0) {
+      if (isPreviousDirection(slideDirection) && activePageIndex != 0) {
         nextPageIndex = activePageIndex - 1;
-      } else if (slideDirection == SlideDirection.rightToLeft &&
+      } else if (isNextDirection(slideDirection) &&
           activePageIndex != pagesLength - 1) {
         nextPageIndex = activePageIndex + 1;
       }

@@ -32,6 +32,9 @@ class PageDragger extends StatefulWidget {
   /// boolean parameter to make user gesture disabled which LiquidSwipe is still Animating
   final bool ignoreUserGestureWhileAnimating;
 
+  /// The axis along which swipe gestures are detected.
+  final Axis swipeAxis;
+
   ///Constructor with some default values
   PageDragger({
     required this.horizontalReveal,
@@ -46,6 +49,7 @@ class PageDragger extends StatefulWidget {
     this.slideIconWidget,
     this.iconPosition,
     this.ignoreUserGestureWhileAnimating = false,
+    this.swipeAxis = Axis.horizontal,
   });
 
   @override
@@ -62,14 +66,15 @@ class _PageDraggerState extends State<PageDragger> {
   ///Calculated Slide Direction of the Gesture/Swipe
   SlideDirection slideDirection = SlideDirection.none;
 
-  ///Horizontally calculated slide percentage, ranges from 0.0 - 1.0
+  ///Primary reveal percentage (horizontal for h-axis, vertical for v-axis), ranges from 0.0 - 1.0
   double slidePercentHor = 0.0;
 
-  ///Same as [slidePercentHor] but for Vertical Swipe and ranges from 0.0 - 1.25
+  ///Secondary axis percentage, ranges from 0.0 - 1.0
   double slidePercentVer = 0.0;
 
+  bool get _isVertical => widget.swipeAxis == Axis.vertical;
+
   /// Method invoked when ever user touch the screen and drag starts
-  /// called at [GestureDetector.onHorizontalDragStart]
   onDragStart(DragStartDetails details) {
     final model = Provider.of<LiquidProvider>(context, listen: false);
 
@@ -82,29 +87,48 @@ class _PageDraggerState extends State<PageDragger> {
   }
 
   ///Updating data while user drags and touch offset changes
-  ///called at [GestureDetector.onHorizontalDragUpdate]
   onDragUpdate(DragUpdateDetails details) {
     if (dragStart != null) {
       //Getting new position details
       final newPosition = details.globalPosition;
-      //Change in position in x
-      final dx = dragStart!.dx - newPosition.dx;
-      final dy = newPosition.dy;
 
       slideDirection = SlideDirection.none;
-      //predicting slide direction
-      if (dx > 0.0) {
-        slideDirection = SlideDirection.rightToLeft;
-      } else if (dx < 0.0) {
-        slideDirection = SlideDirection.leftToRight;
-      }
 
-      //predicting slide percent
-      if (slideDirection != SlideDirection.none) {
-        //clamp method is used to clamp the value of slidePercent from 0.0 to 1.0, after 1.0 it set to 1.0
-        slidePercentHor = (dx / widget.fullTransitionPX).abs().clamp(0.0, 1.0);
-        slidePercentVer =
-            (dy / MediaQuery.of(context).size.height).abs().clamp(0.0, 1.0);
+      if (_isVertical) {
+        // Vertical mode: primary axis is dy
+        final dy = dragStart!.dy - newPosition.dy;
+
+        if (dy > 0.0) {
+          slideDirection = SlideDirection.bottomToTop;
+        } else if (dy < 0.0) {
+          slideDirection = SlideDirection.topToBottom;
+        }
+
+        if (slideDirection != SlideDirection.none) {
+          slidePercentHor =
+              (dy / widget.fullTransitionPX).abs().clamp(0.0, 1.0);
+          slidePercentVer =
+              (newPosition.dx / MediaQuery.of(context).size.width)
+                  .abs()
+                  .clamp(0.0, 1.0);
+        }
+      } else {
+        // Horizontal mode (existing behavior)
+        final dx = dragStart!.dx - newPosition.dx;
+        final dy = newPosition.dy;
+
+        if (dx > 0.0) {
+          slideDirection = SlideDirection.rightToLeft;
+        } else if (dx < 0.0) {
+          slideDirection = SlideDirection.leftToRight;
+        }
+
+        if (slideDirection != SlideDirection.none) {
+          slidePercentHor =
+              (dx / widget.fullTransitionPX).abs().clamp(0.0, 1.0);
+          slidePercentVer =
+              (dy / MediaQuery.of(context).size.height).abs().clamp(0.0, 1.0);
+        }
       }
 
       Provider.of<LiquidProvider>(context, listen: false)
@@ -118,7 +142,6 @@ class _PageDraggerState extends State<PageDragger> {
   }
 
   ///This method executes when user ends dragging and leaves the screen
-  ///called at [GestureDetector.onHorizontalDragEnd]
   onDragEnd(DragEndDetails details) {
     Provider.of<LiquidProvider>(context, listen: false).updateSlide(SlideUpdate(
       SlideDirection.none,
@@ -145,28 +168,44 @@ class _PageDraggerState extends State<PageDragger> {
 
   @override
   Widget build(BuildContext context) {
-    //Gesture Detector for horizontal drag
     final model = Provider.of<LiquidProvider>(context, listen: false);
+
+    // Choose drag callbacks based on axis
+    final GestureDragStartCallback? onStart = model.isInProgress ? null : onDragStart;
+    final GestureDragUpdateCallback? onUpdate = model.isInProgress ? null : onDragUpdate;
+    final GestureDragEndCallback? onEnd = model.isInProgress ? null : onDragEnd;
+
+    // Build icon alignment based on axis
+    final iconAlignment = _isVertical
+        ? Alignment(
+            -1.0 + Utils.handleIconAlignment(widget.iconPosition!) * 2,
+            1 - slidePercentHor,
+          )
+        : Alignment(
+            1 - slidePercentHor,
+            -1.0 + Utils.handleIconAlignment(widget.iconPosition!) * 2,
+          );
+
+    final hideIcon = _isVertical
+        ? slideDirection == SlideDirection.topToBottom
+        : slideDirection == SlideDirection.leftToRight;
 
     return GestureDetector(
         behavior: widget.preferDragFromRevealedArea
             ? HitTestBehavior.translucent
             : null,
-        onHorizontalDragStart: widget.preferDragFromRevealedArea
-            ? model.isInProgress
-                ? null
-                : onDragStart
-            : null,
-        onHorizontalDragUpdate: widget.preferDragFromRevealedArea
-            ? model.isInProgress
-                ? null
-                : onDragUpdate
-            : null,
-        onHorizontalDragEnd: widget.preferDragFromRevealedArea
-            ? model.isInProgress
-                ? null
-                : onDragEnd
-            : null,
+        onHorizontalDragStart:
+            widget.preferDragFromRevealedArea && !_isVertical ? onStart : null,
+        onHorizontalDragUpdate:
+            widget.preferDragFromRevealedArea && !_isVertical ? onUpdate : null,
+        onHorizontalDragEnd:
+            widget.preferDragFromRevealedArea && !_isVertical ? onEnd : null,
+        onVerticalDragStart:
+            widget.preferDragFromRevealedArea && _isVertical ? onStart : null,
+        onVerticalDragUpdate:
+            widget.preferDragFromRevealedArea && _isVertical ? onUpdate : null,
+        onVerticalDragEnd:
+            widget.preferDragFromRevealedArea && _isVertical ? onEnd : null,
         child: Stack(
           children: [
             PageReveal(
@@ -177,36 +216,42 @@ class _PageDraggerState extends State<PageDragger> {
               waveType: widget.waveType,
               verticalReveal: widget.verticalReveal,
               enableSideReveal: widget.enableSideReveal,
+              swipeAxis: widget.swipeAxis,
               child: widget.child,
             ),
             GestureDetector(
               behavior: !widget.preferDragFromRevealedArea
                   ? HitTestBehavior.translucent
                   : null,
-              onHorizontalDragStart: !widget.preferDragFromRevealedArea
-                  ? model.isInProgress
-                      ? null
-                      : onDragStart
-                  : null,
-              onHorizontalDragUpdate: !widget.preferDragFromRevealedArea
-                  ? model.isInProgress
-                      ? null
-                      : onDragUpdate
-                  : null,
-              onHorizontalDragEnd: !widget.preferDragFromRevealedArea
-                  ? model.isInProgress
-                      ? null
-                      : onDragEnd
-                  : null,
+              onHorizontalDragStart:
+                  !widget.preferDragFromRevealedArea && !_isVertical
+                      ? onStart
+                      : null,
+              onHorizontalDragUpdate:
+                  !widget.preferDragFromRevealedArea && !_isVertical
+                      ? onUpdate
+                      : null,
+              onHorizontalDragEnd:
+                  !widget.preferDragFromRevealedArea && !_isVertical
+                      ? onEnd
+                      : null,
+              onVerticalDragStart:
+                  !widget.preferDragFromRevealedArea && _isVertical
+                      ? onStart
+                      : null,
+              onVerticalDragUpdate:
+                  !widget.preferDragFromRevealedArea && _isVertical
+                      ? onUpdate
+                      : null,
+              onVerticalDragEnd:
+                  !widget.preferDragFromRevealedArea && _isVertical
+                      ? onEnd
+                      : null,
               child: Align(
-                alignment: Alignment(
-                  1 - slidePercentHor,
-                  -1.0 + Utils.handleIconAlignment(widget.iconPosition!) * 2,
-                ),
+                alignment: iconAlignment,
                 child: Opacity(
                   opacity: 1 - slidePercentHor,
-                  child: slideDirection != SlideDirection.leftToRight &&
-                          widget.slideIconWidget != null
+                  child: !hideIcon && widget.slideIconWidget != null
                       ? SizedBox(
                           key: _keyIcon,
                           child: Padding(

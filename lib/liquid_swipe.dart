@@ -207,6 +207,11 @@ class LiquidSwipe extends StatefulWidget {
   ///Required a bool to Enable or Disable the side reveal i.e., this clip area on the right side with 15.0px of reveal.
   final bool enableSideReveal;
 
+  /// The axis along which the swipe gesture is detected.
+  ///
+  /// Defaults to [Axis.horizontal]. Set to [Axis.vertical] for top-to-bottom / bottom-to-top swiping.
+  final Axis swipeAxis;
+
   /// A Custom child delegate responsible for child creation in case of builder or fetcher in case of List.
   ///
   /// See also [LiquidSwipeChildDelegate]
@@ -271,6 +276,7 @@ class LiquidSwipe extends StatefulWidget {
     this.ignoreUserGestureWhileAnimating = false,
     this.disableUserGesture = false,
     this.enableSideReveal = false,
+    this.swipeAxis = Axis.horizontal,
   })  : assert(initialPage >= 0 && initialPage < pages.length),
         assert(positionSlideIcon >= 0 && positionSlideIcon <= 1),
         liquidSwipeChildDelegate = LiquidSwipePagesChildDelegate(pages),
@@ -337,6 +343,7 @@ class LiquidSwipe extends StatefulWidget {
     this.ignoreUserGestureWhileAnimating = false,
     this.disableUserGesture = false,
     this.enableSideReveal = false,
+    this.swipeAxis = Axis.horizontal,
   })  : assert(itemCount > 0),
         assert(initialPage >= 0 && initialPage < itemCount),
         assert(positionSlideIcon >= 0 && positionSlideIcon <= 1),
@@ -372,15 +379,17 @@ class _LiquidSwipe extends State<LiquidSwipe> with TickerProviderStateMixin {
           onPageChangeCallback: widget.onPageChangeCallback,
           disableGesture: widget.disableUserGesture,
           enableSideReveal: widget.enableSideReveal,
+          swipeAxis: widget.swipeAxis,
         );
       },
       child:
           Consumer(builder: (BuildContext context, LiquidProvider notifier, _) {
         liquidController.setContext(context);
+        final isPrevDir = isPreviousDirection(notifier.slideDirection);
         return Stack(
           alignment: Alignment.center,
           children: <Widget>[
-            notifier.slideDirection == SlideDirection.leftToRight
+            isPrevDir
                 ? widget.liquidSwipeChildDelegate
                     .getChildAtIndex(context, notifier.activePageIndex)
                 : widget.liquidSwipeChildDelegate
@@ -400,7 +409,8 @@ class _LiquidSwipe extends State<LiquidSwipe> with TickerProviderStateMixin {
               iconPosition: widget.positionSlideIcon,
               ignoreUserGestureWhileAnimating:
                   widget.ignoreUserGestureWhileAnimating,
-              child: notifier.slideDirection == SlideDirection.leftToRight
+              swipeAxis: widget.swipeAxis,
+              child: isPrevDir
                   ? widget.liquidSwipeChildDelegate
                       .getChildAtIndex(context, notifier.nextPageIndex)
                   : widget.liquidSwipeChildDelegate

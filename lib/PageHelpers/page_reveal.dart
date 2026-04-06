@@ -23,6 +23,7 @@ class PageReveal extends StatelessWidget {
   final WaveType waveType;
   final double verticalReveal;
   final bool enableSideReveal;
+  final Axis swipeAxis;
 
   ///Constructor for [PageReveal].
   PageReveal({
@@ -33,20 +34,23 @@ class PageReveal extends StatelessWidget {
     required this.waveType,
     required this.verticalReveal,
     required this.enableSideReveal,
+    this.swipeAxis = Axis.horizontal,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isPrev = isPreviousDirection(slideDirection ?? SlideDirection.none);
+    final revealPercent = isPrev ? 1.0 - horizontalReveal : horizontalReveal;
+
     switch (waveType) {
       case WaveType.circularReveal:
         return ClipPath(
           clipBehavior: Clip.antiAliasWithSaveLayer,
           clipper: CircularWave(
             iconSize,
-            slideDirection == SlideDirection.leftToRight
-                ? 1.0 - horizontalReveal
-                : horizontalReveal,
+            revealPercent,
             verticalReveal,
+            swipeAxis: swipeAxis,
           ),
           child: child,
         );
@@ -54,13 +58,13 @@ class PageReveal extends StatelessWidget {
         return ClipPath(
           clipBehavior: Clip.antiAliasWithSaveLayer,
           clipper: WaveLayer(
-              revealPercent: slideDirection == SlideDirection.leftToRight
-                  ? 1.0 - horizontalReveal
-                  : horizontalReveal,
-              slideDirection: slideDirection,
-              iconSize: iconSize,
-              verReveal: verticalReveal,
-              enableSideReveal: enableSideReveal),
+            revealPercent: revealPercent,
+            slideDirection: slideDirection,
+            iconSize: iconSize,
+            verReveal: verticalReveal,
+            enableSideReveal: enableSideReveal,
+            swipeAxis: swipeAxis,
+          ),
           child: child,
         );
     }
